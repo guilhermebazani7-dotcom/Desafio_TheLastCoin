@@ -1,4 +1,5 @@
 from Funções_Coin import acoes
+import tkinter as tk
 
 usuarios = {}
 saldos = {}
