@@ -1,4 +1,11 @@
-from Funções_Coin import criar_planilha, adicionar_transa, remover_transa, calcular_saldo_periodo
+from Funções_Coin import (
+    criar_planilha,
+    adicionar_transa,
+    remover_transa,
+    calcular_saldo_periodo,
+    listar_por_categoria,
+    listar_por_periodo,
+)
 
 
 usuarios = {}  # dicionário em memória: {nome: senha}
@@ -59,8 +66,8 @@ def menu_inicial():
                     print(f"\n========== MENU FINANCEIRO ({usuario_logado}) ==========")
                     print("1 - Adicionar transação")
                     print("2 - Remover transação")
-                    print("3 - Listar transações por categoria (a implementar)")
-                    print("4 - Listar transações por período (a implementar)")
+                    print("3 - Listar transações por categoria")
+                    print("4 - Listar transações por período")
                     print("5 - Calcular saldo por período")
                     print("0 - Voltar ao menu inicial")
 
@@ -74,10 +81,10 @@ def menu_inicial():
                         remover_transa(wb, ws)
 
                     elif opcao_fin == "3":
-                        print("Função de listar transações por categoria ainda será implementada.")
+                        listar_por_categoria(ws)
 
                     elif opcao_fin == "4":
-                        print("Função de listar transações por período ainda será implementada.")
+                        listar_por_periodo(ws)
 
                     elif opcao_fin == "5":
                         calcular_saldo_periodo(ws)
