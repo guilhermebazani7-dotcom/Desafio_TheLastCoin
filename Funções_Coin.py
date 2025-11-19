@@ -1,4 +1,5 @@
 from openpyxl import Workbook
+from datetime import datetime
 
 def criar_planilha():
     wb = Workbook()
@@ -176,68 +177,27 @@ def remover_transa(wb, ws):
 
 
 
-#------------------------------Opção 5-------------------------------
+#------------------------------Opção 3-------------------------------
 
 
 
-def calcular_saldo_periodo(ws):
-    print("\n----------------------------Saldo por período-----------------------------")
+def listar_por_categoria(ws):
+    print("\n----------------------------Listar por categoria-----------------------------")
 
-    # Ler data inicial
-    print("Informe a DATA INICIAL do período:")
+    # escolher categoria
     while True:
-        dia_ini_str = input("Dia inicial (1 a 30): ")
-        mes_ini_str = input("Mês inicial (1 a 12): ")
-        ano_ini_str = input("Ano inicial (0 a 2025): ")
+        categoria_busca = input("Informe a categoria (lazer, alimento, trabalho, estudos): ").strip().lower()
+        if categoria_busca in ["lazer", "alimento", "trabalho, estudos".replace(",", "")] and categoria_busca in ["lazer", "alimento", "trabalho", "estudos"]:
+            break
+        print("Categoria inválida. Tente novamente.")
 
-        if (dia_ini_str.isdigit() and mes_ini_str.isdigit() and ano_ini_str.isdigit()):
-            dia_ini = int(dia_ini_str)
-            mes_ini = int(mes_ini_str)
-            ano_ini = int(ano_ini_str)
+    print(f"\nTransações da categoria: {categoria_busca}")
+    print("ID | Valor | Tipo | Categoria | Data       | Descrição")
+    print("-----------------------------------------------------------")
 
-            if 1 <= dia_ini <= 30 and 1 <= mes_ini <= 12 and 0 <= ano_ini <= 2025:
-                break
-        print("Data inicial inválida. Tente novamente.\n")
-
-    # Ler data final
-    print("\nInforme a DATA FINAL do período:")
-    while True:
-        dia_fim_str = input("Dia final (1 a 30): ")
-        mes_fim_str = input("Mês final (1 a 12): ")
-        ano_fim_str = input("Ano final (0 a 2025): ")
-
-        if (dia_fim_str.isdigit() and mes_fim_str.isdigit() and ano_fim_str.isdigit()):
-            dia_fim = int(dia_fim_str)
-            mes_fim = int(mes_fim_str)
-            ano_fim = int(ano_fim_str)
-
-            if 1 <= dia_fim <= 30 and 1 <= mes_fim <= 12 and 0 <= ano_fim <= 2025:
-                break
-        print("Data final inválida. Tente novamente.\n")
-
-    # Converter datas para número AAAAMMDD para facilitar comparação
-    data_ini_num = ano_ini * 10000 + mes_ini * 100 + dia_ini
-    data_fim_num = ano_fim * 10000 + mes_fim * 100 + dia_fim
-
-    if data_ini_num > data_fim_num:
-        print("\nPeríodo inválido: a data inicial é maior que a final.")
-        return
-
-    # Cálculo do saldo
-    saldo = 0.0
-    total_entradas = 0.0
-    total_saidas = 0.0
     encontrou = False
-
-    # Lembrando a ordem das colunas:
-    # 0: ID
-    # 1: Valor
-    # 2: Tipo ("entrada" ou "saida")
-    # 3: Categoria
-    # 4: Descricao
-    # 5: Dia
-    # 6: Mes
-    # 7: Ano
+    total_saidas = 0.0
+    qtd_saidas = 0
 
     for linha in ws.iter_rows(min_row=2, values_only=True):
         if not linha:
@@ -245,30 +205,212 @@ def calcular_saldo_periodo(ws):
 
         tid, valor, tipo, categoria, descricao, dia, mes, ano = linha
 
-        if dia is None or mes is None or ano is None:
+        if categoria is None:
             continue
 
-        data_num = int(ano) * 10000 + int(mes) * 100 + int(dia)
-
-        if data_ini_num <= data_num <= data_fim_num:
+        # compara categoria ignorando maiúsculas/minúsculas
+        if str(categoria).strip().lower() == categoria_busca:
             encontrou = True
-            if tipo == "entrada":
-                total_entradas += float(valor)
-                saldo += float(valor)
-            elif tipo == "saida":
-                total_saidas += float(valor)
-                saldo -= float(valor)
+            data_str = f"{int(dia):02d}/{int(mes):02d}/{int(ano)}"
+            print(f"{tid} | {valor} | {tipo} | {categoria} | {data_str} | {descricao}")
 
-    print("\n================== RESULTADO DO PERÍODO ==================")
-    print(f"Período: {dia_ini}/{mes_ini}/{ano_ini}  até  {dia_fim}/{mes_fim}/{ano_fim}")
+            # se for saída, conta como gasto
+            if tipo == "saida":
+                total_saidas += float(valor)
+                qtd_saidas += 1
+
+    if not encontrou:
+        print("Nenhuma transação encontrada para essa categoria.")
+        return
+
+    print("-----------------------------------------------------------")
+    print(f"Total de GASTOS (saídas) na categoria '{categoria_busca}': R$ {total_saidas:.2f}")
+    if qtd_saidas > 0:
+        media_gastos = total_saidas / qtd_saidas
+        print(f"MÉDIA de gasto por transação nessa categoria: R$ {media_gastos:.2f}")
+    else:
+        print("Não houve saídas (gastos) nessa categoria, portanto não há média de gastos.")
+
+
+
+
+#------------------------------Opção 4-------------------------------
+
+
+
+def listar_por_periodo(ws):
+    print("\n----------------------------Listar transações por período-----------------------------")
+
+    # Ler data inicial
+    while True:
+        data_ini_str = input("Informe a data inicial (DD/MM/AAAA): ").strip()
+        try:
+            data_inicial = datetime.strptime(data_ini_str, "%d/%m/%Y")
+            break
+        except:
+            print("Data inválida. Use o formato DD/MM/AAAA.\n")
+
+    # Ler data final
+    while True:
+        data_fim_str = input("Informe a data final (DD/MM/AAAA): ").strip()
+        try:
+            data_final = datetime.strptime(data_fim_str, "%d/%m/%Y")
+            break
+        except:
+            print("Data inválida. Use o formato DD/MM/AAAA.\n")
+
+    # Verificar se o período é válido
+    if data_inicial > data_final:
+        print("\nPeríodo inválido: a data inicial é maior que a final.")
+        return
+
+    print("\nTransações dentro do período:")
+    print("ID | Valor | Tipo | Categoria | Data       | Descrição")
+    print("-----------------------------------------------------------")
+
+    encontrou = False
+    total_saidas = 0.0
+    qtd_saidas = 0
+
+
+
+    for linha in ws.iter_rows(min_row=2, values_only=True):
+        if not linha:
+            continue
+
+        tid, valor, tipo, categoria, descricao, dia, mes, ano = linha
+
+        if dia is None or mes is None or ano is None or valor is None:
+            continue
+
+        # montar a data real da transação
+        try:
+            data_transacao = datetime(int(ano), int(mes), int(dia))
+        except:
+            continue  # ignora datas inválidas
+
+        # verificar se está dentro do período
+        if data_inicial <= data_transacao <= data_final:
+            encontrou = True
+            data_str = data_transacao.strftime("%d/%m/%Y")
+            print(f"{tid} | {valor} | {tipo} | {categoria} | {data_str} | {descricao}")
+
+            # se for saída, conta como gasto
+            if tipo == "saida":
+                total_saidas += float(valor)
+                qtd_saidas += 1
+
+    print("-----------------------------------------------------------")
 
     if not encontrou:
         print("Nenhuma transação encontrada nesse período.")
         return
 
+    print(f"Total de GASTOS (saídas) no período: R$ {total_saidas:.2f}")
+    if qtd_saidas > 0:
+        media_gastos = total_saidas / qtd_saidas
+        print(f"MÉDIA de gasto por transação no período: R$ {media_gastos:.2f}")
+    else:
+        print("Não houve saídas (gastos) no período, portanto não há média de gastos.")
+
+
+
+#------------------------------Opção 5-------------------------------
+
+
+
+from datetime import datetime
+
+def calcular_saldo_periodo(ws):
+    print("\n----------------------------Saldo por período-----------------------------")
+
+    # Ler data inicial usando datetime
+    while True:
+        data_ini_str = input("Informe a data inicial (DD/MM/AAAA): ").strip()
+        try:
+            data_inicial = datetime.strptime(data_ini_str, "%d/%m/%Y")
+            break
+        except:
+            print("Data inválida. Use o formato DD/MM/AAAA.\n")
+
+    # Ler data final usando datetime
+    while True:
+        data_fim_str = input("Informe a data final (DD/MM/AAAA): ").strip()
+        try:
+            data_final = datetime.strptime(data_fim_str, "%d/%m/%Y")
+            break
+        except:
+            print("Data inválida. Use o formato DD/MM/AAAA.\n")
+
+    # Verificar se o período é válido
+    if data_inicial > data_final:
+        print("\nPeríodo inválido: a data inicial é maior que a final.")
+        return
+
+    saldo = 0.0
+    total_entradas = 0.0
+    total_saidas = 0.0
+    encontrou = False
+
+    # dicionário para saldo por mês: chave = (ano, mes), valor = saldo desse mês
+    saldo_por_mes = {}  # ex: {(2025, 1): 150.0, (2025, 2): -20.0}
+
+    # Percorrer as linhas da planilha
+    for linha in ws.iter_rows(min_row=2, values_only=True):
+
+        if not linha:
+            continue
+
+        tid, valor, tipo, categoria, descricao, dia, mes, ano = linha
+
+        # pular linhas vazias
+        if dia is None or mes is None or ano is None or valor is None or tipo is None:
+            continue
+
+        # montar a data real da transação
+        try:
+            data_transacao = datetime(int(ano), int(mes), int(dia))
+        except:
+            continue  # ignora datas mal formatadas na planilha
+
+        # comparar datas usando datetime
+        if data_inicial <= data_transacao <= data_final:
+            encontrou = True
+            valor_f = float(valor)
+
+            chave_mes = (int(ano), int(mes))
+            if chave_mes not in saldo_por_mes:
+                saldo_por_mes[chave_mes] = 0.0
+
+            if tipo == "entrada":
+                total_entradas += valor_f
+                saldo += valor_f
+                saldo_por_mes[chave_mes] += valor_f
+
+            elif tipo == "saida":
+                total_saidas += valor_f
+                saldo -= valor_f
+                saldo_por_mes[chave_mes] -= valor_f
+
+    print("\n================== RESULTADO DO PERÍODO ==================")
+    print(f"Período: {data_inicial.strftime('%d/%m/%Y')}  até  {data_final.strftime('%d/%m/%Y')}")
+    print("----------------------------------------------------------")
+
+    if not encontrou:
+        print("Nenhuma transação encontrada nesse período.")
+        return
+
+    # Totais gerais do período
     print(f"Total de ENTRADAS: R$ {total_entradas:.2f}")
     print(f"Total de SAÍDAS..: R$ {total_saidas:.2f}")
-    print("-------------------------------------------------")
+    print("----------------------------------------------------------")
     print(f"SALDO NO PERÍODO.: R$ {saldo:.2f}")
 
+    # Saldo por mês
+    print("\n================== SALDO POR MÊS ==================")
+    # ordenar por ano, depois por mês
+    chaves_ordenadas = sorted(saldo_por_mes.keys())  # ordena por (ano, mes)
 
+    for (ano_m, mes_m) in chaves_ordenadas:
+        saldo_mes = saldo_por_mes[(ano_m, mes_m)]
+        print(f"Mês {mes_m:02d}/{ano_m}: R$ {saldo_mes:.2f}")
