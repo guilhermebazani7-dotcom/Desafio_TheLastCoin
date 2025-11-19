@@ -1,58 +1,99 @@
-import tkinter as tk
+from openpyxl import Workbook
 
-usuarios = {}
-saldos = {}
+wb = Workbook()
+ws = wb.active
+ws.title = "Transacoes"
 
-def acoes(nome):
+ws.append([
+    "ID",
+    "Valor",
+    "Tipo",
+    "Categoria",
+    "Descricao",
+    "Dia",
+    "Mes",
+    "Ano"
+])
+
+print("----------------------------Cadastro de transações-----------------------------")
+
+id_transacao = 1
+
+while True:
+
+    print(f"\nRegistrando transação de ID {id_transacao}...\n")
+
+    # Cadastrando o Valor
     while True:
-        print("AÇÕES")
-        print("1 - Depósito em conta corrente \n2 - Saque conta corrente \n3 - Ver saldo em conta corrente"
-              " \n4 - Depósito em conta poupança \n5 - Saque conta poupança \n6 - Ver saldo em conta poupança \n7 - Sair")
-        opcao = input("Escolha uma opção: ")
+        valor_numero = input("Digite o valor da transação: ")
+        valor_numero = valor_numero.replace(",", ".")   #Isso aq vai tratar caso tenha vírgula
+        try:
+            valor = float(valor_numero)
+            if valor > 0:
+                break
+            print("O valor deve ser maior que zero.")
+        except:
+            print("Valor inválido. Tente novamente.")
 
-        #Depósito
-        if opcao == "1":
-            valor = float(input("Valor do depósito:"))
-            saldos[nome]["corrente"] += valor
-            print(f"Deposito de {valor} realizado com sucesso.")
-
-        #Saque
-        if opcao == "2":
-            valor = float(input("Valor do saque:"))
-            if valor <= saldos[nome]["corrente"]:
-                saldos[nome]["corrente"] -= valor
-                print(f"Saque de {valor} realizado com sucesso!")
-            else:
-                print("Saldo insuficiente.")
-
-        #Ver saldo
-        if opcao == "3":
-            print(f"Saldo em conta corrente: {saldos[nome]['corrente']}")
-
-#---------------------------------------------------------------------------
-        #Depósito (poupança)
-        if opcao == "4":
-            valor = float(input("Valor do depósito: "))
-            saldos[nome]["poupanca"] += valor
-            print(f"Depósito de {valor} realizado com sucesso.")
-
-        #Saque (poupança)
-        if opcao == "5":
-            valor = float(input("Valor do saque:"))
-            if valor <= saldos[nome]["poupanca"]:
-                saldos[nome]["poupanca"] -= valor
-                print(f"Saque de {valor} realizado com sucesso.")
-            else:
-                print("Saldo insuficiente.")
-
-        #Ver saldo (poupança)
-        if opcao == "6":
-            print(f"Saldo em conta poupança: {saldos[nome]['poupanca']}")
-
-        #Encerrar
-        if opcao == "7":
-            print("Saindo do menu de ações.")
-            break  # volta ao menu principal
+    # Cadastrando o Tipo
+    while True:
+        tipo_transa = input("Digite o tipo da transação (1 - entrada, 2 - saída): ")
+        if tipo_transa == "1":
+            tipo = "entrada"
+            break
+        elif tipo_transa == "2":
+            tipo = "saida"
+            break
         else:
-            print("Opção invalida. Tente novamente.")
+            print("Opção inválida. Digite 1 ou 2.")
 
+    # Cadastrando Categoria
+    while True:
+        categoria = input("Categoria (lazer, alimento, trabalho, estudos): ").strip().lower()   #trata espaços e maiusculos
+        if categoria in ["lazer", "alimento", "trabalho", "estudos"]:
+            break
+        print("Categoria inválida.")
+
+    # Cadastrando Descrição
+    while True:
+        descricao = input("Descrição: ").strip()      #trata espaços
+        if descricao != "":          #interpreta que tem que ter uma descrição
+            break
+        print("Descrição não pode ser vazia.")
+
+    # Cadastrando o Dia
+    while True:
+        dia_numero = input("Dia (1 a 30): ")
+        if dia_numero.isdigit() and 1 <= int(dia_numero) <= 30:     #põe os limites de 1 a 30 (mês)
+            dia = int(dia_numero)
+            break
+        print("Dia inválido.")
+
+    # Cadastrando Mês
+    while True:
+        mes_numero = input("Mês (1 a 12): ")
+        if mes_numero.isdigit() and 1 <= int(mes_numero) <= 12:        #esse .isdigit() faz tudo virar número
+            mes = int(mes_numero)
+            break
+        print("Mês inválido.")
+
+    # Cadastrando Ano
+    while True:
+        ano_numero = input("Ano (0 a 2025): ")
+        if ano_numero.isdigit() and 1 <= int(ano_numero) <= 2025:
+            ano = int(ano_numero)
+            break
+        print("Ano inválido.")
+
+    ws.append([id_transacao, valor, tipo, categoria, descricao, dia, mes, ano])     #adiciona as mudanças
+    wb.save("Controle_Financeiro.xlsx")          #salva
+    print("Transação salva com sucesso!")
+
+    id_transacao += 1
+
+    continuar = input("\nDeseja registrar outra transação? (s/n): ").lower().strip()
+    if continuar != "s":
+        print("Encerrando cadastro.")
+        break
+
+print("Arquivo atualizado: Controle_Financeiro.xlsx")
