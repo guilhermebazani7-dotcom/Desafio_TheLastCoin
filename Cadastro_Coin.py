@@ -1,5 +1,8 @@
+from Funções_Coin import criar_planilha, adicionar_transa, remover_transa, calcular_saldo_periodo
+
 
 usuarios = {}  # dicionário em memória: {nome: senha}
+
 
 def cadastrar_usuario():
     print("--------- CADASTRO ---------")
@@ -15,6 +18,7 @@ def cadastrar_usuario():
     if senha == "":
         print("Senha não pode ser vazia.")
         return
+
     usuarios[nome] = senha
     print(f"Usuário '{nome}' cadastrado com sucesso!")
 
@@ -47,12 +51,43 @@ def menu_inicial():
         elif escolha == "2":
             usuario_logado = fazer_login()
             if usuario_logado is not None:
-                # 🔹 AQUI você vai chamar o menu financeiro
-                # Exemplo depois:
-                # from sistema_financeiro import menu_financeiro
-                # menu_financeiro(usuario_logado)
-                print("Aqui você chamaria o menu financeiro em outro módulo.")
-                # por enquanto só volta pro menu inicial
+                # ---------- MENU FINANCEIRO (APÓS LOGIN) ----------
+                # cria a planilha e obtém wb e ws
+                wb, ws = criar_planilha()
+
+                while True:
+                    print(f"\n========== MENU FINANCEIRO ({usuario_logado}) ==========")
+                    print("1 - Adicionar transação")
+                    print("2 - Remover transação")
+                    print("3 - Listar transações por categoria (a implementar)")
+                    print("4 - Listar transações por período (a implementar)")
+                    print("5 - Calcular saldo por período")
+                    print("0 - Voltar ao menu inicial")
+
+                    opcao_fin = input("Escolha uma opção: ")
+
+                    if opcao_fin == "1":
+                        # chama a função que você já criou em Funções_Coin.py
+                        adicionar_transa(wb, ws)
+
+                    elif opcao_fin == "2":
+                        remover_transa(wb, ws)
+
+                    elif opcao_fin == "3":
+                        print("Função de listar transações por categoria ainda será implementada.")
+
+                    elif opcao_fin == "4":
+                        print("Função de listar transações por período ainda será implementada.")
+
+                    elif opcao_fin == "5":
+                        calcular_saldo_periodo(ws)
+
+                    elif opcao_fin == "0":
+                        print("Voltando ao menu inicial...")
+                        break
+
+                    else:
+                        print("Opção inválida. Tente novamente.")
 
         elif escolha == "0":
             print("Encerrando o sistema de usuários.")
