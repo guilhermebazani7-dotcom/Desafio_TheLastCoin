@@ -1,31 +1,77 @@
-from openpyxl import Workbook
+import os
+from openpyxl import Workbook, load_workbook
 from datetime import datetime
 
+
 def criar_planilha():
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Transacoes"
+    """
+    Abre o arquivo Controle_Financeiro.xlsx se ele existir.
+    Se não existir, cria um novo com a planilha Transacoes e o cabeçalho.
+    Retorna wb, ws.
+    """
+    arquivo = "Controle_Financeiro.xlsx"
 
-    ws.append([
-        "ID",
-        "Valor",
-        "Tipo",
-        "Categoria",
-        "Descricao",
-        "Dia",
-        "Mes",
-        "Ano"
-    ])
+    if os.path.exists(arquivo):
+        # Arquivo já existe: apenas abre
+        wb = load_workbook(arquivo)
+        # Tenta usar a planilha "Transacoes"; se não existir, usa a ativa
+        if "Transacoes" in wb.sheetnames:
+            ws = wb["Transacoes"]
+        else:
+            ws = wb.active
+            ws.title = "Transacoes"
+            # Se a planilha estiver vazia, garante o cabeçalho
+            if ws.max_row == 1 and all(c.value is None for c in ws[1]):
+                ws.append([
+                    "ID",
+                    "Valor",
+                    "Tipo",
+                    "Categoria",
+                    "Descricao",
+                    "Dia",
+                    "Mes",
+                    "Ano"
+                ])
+                wb.save(arquivo)
+    else:
+        # Arquivo não existe: cria do zero
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Transacoes"
 
-    # salva o arquivo vazio com o cabeçalho
-    wb.save("Controle_Financeiro.xlsx")
+        ws.append([
+            "ID",
+            "Valor",
+            "Tipo",
+            "Categoria",
+            "Descricao",
+            "Dia",
+            "Mes",
+            "Ano"
+        ])
+
+        wb.save(arquivo)
+
     return wb, ws
 
 
 def adicionar_transa(wb, ws):
     print("----------------------------Cadastro de transações-----------------------------")
 
-    id_transacao = 1
+    # Descobrir o maior ID já usado na planilha, para continuar a contagem
+    max_id = 0
+    for linha in ws.iter_rows(min_row=2, max_col=1, values_only=True):
+        cell_id = linha[0]
+        if cell_id is None:
+            continue
+        try:
+            iid = int(cell_id)
+            if iid > max_id:
+                max_id = iid
+        except:
+            continue
+
+    id_transacao = max_id + 1  # próximo ID disponível
 
     while True:
 
@@ -109,44 +155,19 @@ def adicionar_transa(wb, ws):
 
 
 #------------------------------Opção 2------------------------------
+# AGORA NÃO TEM MAIS input()/print(), SÓ REMOVE PELO ID RECEBIDO
 
 
-
-def remover_transa(wb, ws):
-    print("\n----------------------------Remover transação-----------------------------")
-
-    # Mostrar uma listagem simples das transações (opcional, mas ajuda o usuário)
-    print("\nTransações cadastradas:")
-    print("ID | Valor | Tipo | Categoria | Dia/Mês/Ano | Descrição")
-    print("-----------------------------------------------------------")
-
-    linhas = list(ws.iter_rows(min_row=2, values_only=True))
-    if not linhas:
-        print("Nenhuma transação encontrada.")
-        return
-
-    for linha in linhas:
-        tid, valor, tipo, categoria, descricao, dia, mes, ano = linha
-        print(f"{tid} | {valor} | {tipo} | {categoria} | {dia}/{mes}/{ano} | {descricao}")
-
-    print("-----------------------------------------------------------")
-
-    # Pedir o ID a remover
-    id_str = input("\nInforme o ID da transação que deseja remover: ").strip()
-
-    if not id_str.isdigit():
-        print("ID inválido. Deve ser um número inteiro.")
-        return
-
-    id_remover = int(id_str)
-
-    # Procurar o ID na planilha
-    encontrou = False
+def remover_transa(wb, ws, id_remover):
+    """
+    Remove a transação com o ID informado.
+    Retorna:
+      (True, detalhes) se encontrou e removeu
+      (False, mensagem) se não encontrou
+    """
     for indice_linha, row in enumerate(ws.iter_rows(min_row=2), start=2):
         cell_id = row[0].value  # primeira coluna é o ID
         if cell_id == id_remover:
-            encontrou = True
-            # Mostrar os dados antes de remover (opcional)
             valor = row[1].value
             tipo = row[2].value
             categoria = row[3].value
@@ -155,43 +176,42 @@ def remover_transa(wb, ws):
             mes = row[6].value
             ano = row[7].value
 
-            print("\nTransação encontrada:")
-            print(f"ID: {cell_id}")
-            print(f"Valor: {valor}")
-            print(f"Tipo: {tipo}")
-            print(f"Categoria: {categoria}")
-            print(f"Data: {dia}/{mes}/{ano}")
-            print(f"Descrição: {descricao}")
+            detalhes = (
+                f"ID: {cell_id}\n"
+                f"Valor: {valor}\n"
+                f"Tipo: {tipo}\n"
+                f"Categoria: {categoria}\n"
+                f"Data: {dia}/{mes}/{ano}\n"
+                f"Descrição: {descricao}"
+            )
 
-            confirma = input("Deseja realmente remover essa transação? (s/n): ").strip().lower()
-            if confirma == "s":
-                ws.delete_rows(indice_linha, 1)
-                wb.save("Controle_Financeiro.xlsx")
-                print("Transação removida com sucesso!")
-            else:
-                print("Remoção cancelada.")
-            break
+            ws.delete_rows(indice_linha, 1)
+            wb.save("Controle_Financeiro.xlsx")
+            return True, detalhes
 
-    if not encontrou:
-        print("Nenhuma transação com esse ID foi encontrada.")
+    return False, "Nenhuma transação com esse ID foi encontrada."
 
 
 
 #------------------------------Opção 3-------------------------------
 
 
+def listar_por_categoria(ws, categoria_busca):
+    categoria_busca = str(categoria_busca).strip().lower()
 
-def listar_por_categoria(ws):
+    # validação simples
+    if categoria_busca not in ["lazer", "alimento", "trabalho", "estudos"]:
+        msg = "Categoria inválida. Use: lazer, alimento, trabalho ou estudos."
+        print(msg)
+        return msg
+
+    linhas_resultado = []
+    linhas_resultado.append(f"Transações da categoria: {categoria_busca}")
+    linhas_resultado.append("ID | Valor | Tipo | Categoria | Data       | Descrição")
+    linhas_resultado.append("-----------------------------------------------------------")
+
     print("\n----------------------------Listar por categoria-----------------------------")
-
-    # escolher categoria
-    while True:
-        categoria_busca = input("Informe a categoria (lazer, alimento, trabalho, estudos): ").strip().lower()
-        if categoria_busca in ["lazer", "alimento", "trabalho, estudos".replace(",", "")] and categoria_busca in ["lazer", "alimento", "trabalho", "estudos"]:
-            break
-        print("Categoria inválida. Tente novamente.")
-
-    print(f"\nTransações da categoria: {categoria_busca}")
+    print(f"Categoria buscada: {categoria_busca}")
     print("ID | Valor | Tipo | Categoria | Data       | Descrição")
     print("-----------------------------------------------------------")
 
@@ -212,7 +232,9 @@ def listar_por_categoria(ws):
         if str(categoria).strip().lower() == categoria_busca:
             encontrou = True
             data_str = f"{int(dia):02d}/{int(mes):02d}/{int(ano)}"
-            print(f"{tid} | {valor} | {tipo} | {categoria} | {data_str} | {descricao}")
+            texto = f"{tid} | {valor} | {tipo} | {categoria} | {data_str} | {descricao}"
+            print(texto)
+            linhas_resultado.append(texto)
 
             # se for saída, conta como gasto
             if tipo == "saida":
@@ -220,49 +242,46 @@ def listar_por_categoria(ws):
                 qtd_saidas += 1
 
     if not encontrou:
-        print("Nenhuma transação encontrada para essa categoria.")
-        return
+        msg = "Nenhuma transação encontrada para essa categoria."
+        print(msg)
+        return msg
 
+    linhas_resultado.append("-----------------------------------------------------------")
     print("-----------------------------------------------------------")
+    linhas_resultado.append(f"Total de GASTOS (saídas) na categoria '{categoria_busca}': R$ {total_saidas:.2f}")
     print(f"Total de GASTOS (saídas) na categoria '{categoria_busca}': R$ {total_saidas:.2f}")
+
     if qtd_saidas > 0:
         media_gastos = total_saidas / qtd_saidas
+        linhas_resultado.append(f"MÉDIA de gasto por transação nessa categoria: R$ {media_gastos:.2f}")
         print(f"MÉDIA de gasto por transação nessa categoria: R$ {media_gastos:.2f}")
     else:
+        linhas_resultado.append("Não houve saídas (gastos) nessa categoria, portanto não há média de gastos.")
         print("Não houve saídas (gastos) nessa categoria, portanto não há média de gastos.")
 
+    return "\n".join(linhas_resultado)
 
 
 
 #------------------------------Opção 4-------------------------------
 
 
-
-def listar_por_periodo(ws):
+def listar_por_periodo(ws, data_inicial, data_final):
+    """
+    data_inicial e data_final são objetos datetime já validados.
+    """
     print("\n----------------------------Listar transações por período-----------------------------")
-
-    # Ler data inicial
-    while True:
-        data_ini_str = input("Informe a data inicial (DD/MM/AAAA): ").strip()
-        try:
-            data_inicial = datetime.strptime(data_ini_str, "%d/%m/%Y")
-            break
-        except:
-            print("Data inválida. Use o formato DD/MM/AAAA.\n")
-
-    # Ler data final
-    while True:
-        data_fim_str = input("Informe a data final (DD/MM/AAAA): ").strip()
-        try:
-            data_final = datetime.strptime(data_fim_str, "%d/%m/%Y")
-            break
-        except:
-            print("Data inválida. Use o formato DD/MM/AAAA.\n")
 
     # Verificar se o período é válido
     if data_inicial > data_final:
-        print("\nPeríodo inválido: a data inicial é maior que a final.")
-        return
+        msg = "Período inválido: a data inicial é maior que a final."
+        print(msg)
+        return msg
+
+    linhas_resultado = []
+    linhas_resultado.append(f"Transações de {data_inicial.strftime('%d/%m/%Y')} até {data_final.strftime('%d/%m/%Y')}")
+    linhas_resultado.append("ID | Valor | Tipo | Categoria | Data       | Descrição")
+    linhas_resultado.append("-----------------------------------------------------------")
 
     print("\nTransações dentro do período:")
     print("ID | Valor | Tipo | Categoria | Data       | Descrição")
@@ -271,8 +290,6 @@ def listar_por_periodo(ws):
     encontrou = False
     total_saidas = 0.0
     qtd_saidas = 0
-
-
 
     for linha in ws.iter_rows(min_row=2, values_only=True):
         if not linha:
@@ -293,7 +310,9 @@ def listar_por_periodo(ws):
         if data_inicial <= data_transacao <= data_final:
             encontrou = True
             data_str = data_transacao.strftime("%d/%m/%Y")
-            print(f"{tid} | {valor} | {tipo} | {categoria} | {data_str} | {descricao}")
+            texto = f"{tid} | {valor} | {tipo} | {categoria} | {data_str} | {descricao}"
+            print(texto)
+            linhas_resultado.append(texto)
 
             # se for saída, conta como gasto
             if tipo == "saida":
@@ -301,51 +320,46 @@ def listar_por_periodo(ws):
                 qtd_saidas += 1
 
     print("-----------------------------------------------------------")
+    linhas_resultado.append("-----------------------------------------------------------")
 
     if not encontrou:
-        print("Nenhuma transação encontrada nesse período.")
-        return
+        msg = "Nenhuma transação encontrada nesse período."
+        print(msg)
+        return msg
 
-    print(f"Total de GASTOS (saídas) no período: R$ {total_saidas:.2f}")
+    resumo = f"Total de GASTOS (saídas) no período: R$ {total_saidas:.2f}"
+    print(resumo)
+    linhas_resultado.append(resumo)
+
     if qtd_saidas > 0:
         media_gastos = total_saidas / qtd_saidas
-        print(f"MÉDIA de gasto por transação no período: R$ {media_gastos:.2f}")
+        resumo2 = f"MÉDIA de gasto por transação no período: R$ {media_gastos:.2f}"
+        print(resumo2)
+        linhas_resultado.append(resumo2)
     else:
-        print("Não houve saídas (gastos) no período, portanto não há média de gastos.")
+        resumo2 = "Não houve saídas (gastos) no período, portanto não há média de gastos."
+        print(resumo2)
+        linhas_resultado.append(resumo2)
+
+    return "\n".join(linhas_resultado)
+
 
 
 
 #------------------------------Opção 5-------------------------------
 
 
-
-from datetime import datetime
-
-def calcular_saldo_periodo(ws):
+def calcular_saldo_periodo(ws, data_inicial, data_final):
+    """
+    data_inicial e data_final são objetos datetime já validados.
+    """
     print("\n----------------------------Saldo por período-----------------------------")
-
-    # Ler data inicial usando datetime
-    while True:
-        data_ini_str = input("Informe a data inicial (DD/MM/AAAA): ").strip()
-        try:
-            data_inicial = datetime.strptime(data_ini_str, "%d/%m/%Y")
-            break
-        except:
-            print("Data inválida. Use o formato DD/MM/AAAA.\n")
-
-    # Ler data final usando datetime
-    while True:
-        data_fim_str = input("Informe a data final (DD/MM/AAAA): ").strip()
-        try:
-            data_final = datetime.strptime(data_fim_str, "%d/%m/%Y")
-            break
-        except:
-            print("Data inválida. Use o formato DD/MM/AAAA.\n")
 
     # Verificar se o período é válido
     if data_inicial > data_final:
-        print("\nPeríodo inválido: a data inicial é maior que a final.")
-        return
+        msg = "Período inválido: a data inicial é maior que a final."
+        print(msg)
+        return msg
 
     saldo = 0.0
     total_entradas = 0.0
@@ -392,25 +406,48 @@ def calcular_saldo_periodo(ws):
                 saldo -= valor_f
                 saldo_por_mes[chave_mes] -= valor_f
 
+    linhas_resultado = []
+    linhas_resultado.append("================== RESULTADO DO PERÍODO ==================")
+    cabecalho = f"Período: {data_inicial.strftime('%d/%m/%Y')}  até  {data_final.strftime('%d/%m/%Y')}"
+    linhas_resultado.append(cabecalho)
+    linhas_resultado.append("----------------------------------------------------------")
+
     print("\n================== RESULTADO DO PERÍODO ==================")
-    print(f"Período: {data_inicial.strftime('%d/%m/%Y')}  até  {data_final.strftime('%d/%m/%Y')}")
+    print(cabecalho)
     print("----------------------------------------------------------")
 
     if not encontrou:
-        print("Nenhuma transação encontrada nesse período.")
-        return
+        msg = "Nenhuma transação encontrada nesse período."
+        print(msg)
+        linhas_resultado.append(msg)
+        return "\n".join(linhas_resultado)
 
     # Totais gerais do período
-    print(f"Total de ENTRADAS: R$ {total_entradas:.2f}")
-    print(f"Total de SAÍDAS..: R$ {total_saidas:.2f}")
+    txt_ent = f"Total de ENTRADAS: R$ {total_entradas:.2f}"
+    txt_sai = f"Total de SAÍDAS..: R$ {total_saidas:.2f}"
+    txt_saldo = f"SALDO NO PERÍODO.: R$ {saldo:.2f}"
+
+    print(txt_ent)
+    print(txt_sai)
     print("----------------------------------------------------------")
-    print(f"SALDO NO PERÍODO.: R$ {saldo:.2f}")
+    print(txt_saldo)
+
+    linhas_resultado.append(txt_ent)
+    linhas_resultado.append(txt_sai)
+    linhas_resultado.append("----------------------------------------------------------")
+    linhas_resultado.append(txt_saldo)
 
     # Saldo por mês
+    linhas_resultado.append("\n================== SALDO POR MÊS ==================")
     print("\n================== SALDO POR MÊS ==================")
+
     # ordenar por ano, depois por mês
     chaves_ordenadas = sorted(saldo_por_mes.keys())  # ordena por (ano, mes)
 
     for (ano_m, mes_m) in chaves_ordenadas:
         saldo_mes = saldo_por_mes[(ano_m, mes_m)]
-        print(f"Mês {mes_m:02d}/{ano_m}: R$ {saldo_mes:.2f}")
+        linha_mes = f"Mês {mes_m:02d}/{ano_m}: R$ {saldo_mes:.2f}"
+        print(linha_mes)
+        linhas_resultado.append(linha_mes)
+
+    return "\n".join(linhas_resultado)
