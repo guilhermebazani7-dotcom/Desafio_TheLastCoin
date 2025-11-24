@@ -1,7 +1,8 @@
 from datetime import datetime
+import logging
 from Funções_Coin import (
     criar_planilha,
-    adicionar_transa,          # continua existindo, mas não é mais chamado pelo Tk
+    adicionar_transa,
     remover_transa,
     calcular_saldo_periodo,
     listar_por_categoria,
@@ -12,6 +13,13 @@ from Funções_Coin import (
 
 import tkinter as tk
 from tkinter import messagebox
+
+# ------------------------ LOGGING ------------------------
+logging.basicConfig(
+    filename="coin_system.log",
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
 usuarios = {}
 root = None
@@ -35,13 +43,13 @@ def mostrar_texto(titulo, conteudo):
 
 # ------------------------ JANELAS AUXILIARES DO MENU FINANCEIRO ------------------------
 
-
 def gui_remover_transacao(wb, ws):
+    logging.info("Ação: abrir janela de remover transação")
 
-    # Verifica se há transações
     linhas = list(ws.iter_rows(min_row=2, values_only=True))
     if not linhas:
         messagebox.showinfo("Remover transação", "Não há transações cadastradas.")
+        logging.warning("Tentativa de remover transação sem dados existentes")
         return
 
     def confirmar_remocao():
@@ -49,12 +57,16 @@ def gui_remover_transacao(wb, ws):
         if not id_str.isdigit():
             messagebox.showerror("Erro", "ID deve ser um número inteiro.")
             return
+
         id_rem = int(id_str)
         ok, detalhes = remover_transa(wb, ws, id_rem)
+
         if ok:
+            logging.info(f"Transação removida ID={id_rem}")
             messagebox.showinfo("Sucesso", "Transação removida:\n\n" + detalhes)
             janela.destroy()
         else:
+            logging.warning(f"Falha ao remover transação ID={id_rem}")
             messagebox.showerror("Erro", detalhes)
 
     janela = tk.Toplevel(root)
@@ -87,12 +99,15 @@ def gui_remover_transacao(wb, ws):
 
 
 def gui_listar_categoria(ws):
+    logging.info("Ação: abrir janela listar por categoria")
 
     def confirmar():
         cat = entry_cat.get().strip().lower()
         if cat == "":
             messagebox.showerror("Erro", "Informe uma categoria.")
             return
+
+        logging.info(f"Listando categoria: {cat}")
         resultado = listar_por_categoria(ws, cat)
         mostrar_texto("Transações por categoria", resultado)
         janela.destroy()
@@ -109,10 +124,12 @@ def gui_listar_categoria(ws):
 
 
 def gui_listar_periodo(ws):
+    logging.info("Ação: abrir janela listar por período")
 
     def confirmar():
         d1_str = entry_ini.get().strip()
         d2_str = entry_fim.get().strip()
+
         if d1_str == "" or d2_str == "":
             messagebox.showerror("Erro", "Preencha as duas datas.")
             return
@@ -124,6 +141,7 @@ def gui_listar_periodo(ws):
             messagebox.showerror("Erro", "Data inválida. Use o formato DD/MM/AAAA.")
             return
 
+        logging.info(f"Listagem período de {d1_str} até {d2_str}")
         resultado = listar_por_periodo(ws, data_inicial, data_final)
         mostrar_texto("Transações por período", resultado)
         janela.destroy()
@@ -144,11 +162,12 @@ def gui_listar_periodo(ws):
 
 
 def gui_saldo_periodo(ws):
-    """Abre janela para pedir período e calcular saldo."""
+    logging.info("Ação: abrir janela saldo por período")
 
     def confirmar():
         d1_str = entry_ini.get().strip()
         d2_str = entry_fim.get().strip()
+
         if d1_str == "" or d2_str == "":
             messagebox.showerror("Erro", "Preencha as duas datas.")
             return
@@ -160,6 +179,7 @@ def gui_saldo_periodo(ws):
             messagebox.showerror("Erro", "Data inválida. Use o formato DD/MM/AAAA.")
             return
 
+        logging.info(f"Calculando saldo do período {d1_str} até {d2_str}")
         resultado = calcular_saldo_periodo(ws, data_inicial, data_final)
         mostrar_texto("Saldo por período", resultado)
         janela.destroy()
@@ -179,86 +199,45 @@ def gui_saldo_periodo(ws):
     tk.Button(janela, text="Calcular", command=confirmar).pack(pady=10)
 
 
-# ------------------------ NOVA JANELA: ADICIONAR TRANSAÇÃO (GUI) ------------------------
-
+# ------------------------ ADICIONAR TRANSAÇÃO ------------------------
 
 def gui_adicionar_transacao(wb, ws):
-    """Janela Tkinter para cadastrar UMA transação, sem usar o terminal."""
+    logging.info("Ação: abrir janela adicionar transação")
 
     def salvar():
-        # VALOR
         valor_str = entry_valor.get().strip().replace(",", ".")
         try:
             valor = float(valor_str)
             if valor <= 0:
                 raise ValueError
         except ValueError:
-            messagebox.showerror("Erro", "Valor inválido. Informe um número maior que zero.")
+            messagebox.showerror("Erro", "Valor inválido.")
             return
 
-        # TIPO (entrada/saida)
         tipo = var_tipo.get()
-        if tipo not in ["entrada", "saida"]:
-            messagebox.showerror("Erro", "Selecione o tipo de transação.")
-            return
-
-        # CATEGORIA
         categoria = var_cat.get().strip().lower()
-        if categoria not in ["lazer", "alimento", "trabalho", "estudos"]:
-            messagebox.showerror("Erro", "Categoria inválida.")
-            return
-
-        # DESCRIÇÃO
         descricao = entry_desc.get().strip()
-        if descricao == "":
-            messagebox.showerror("Erro", "Descrição não pode ser vazia.")
-            return
 
-        # DIA / MÊS / ANO
         try:
             dia = int(entry_dia.get().strip())
             mes = int(entry_mes.get().strip())
             ano = int(entry_ano.get().strip())
-        except ValueError:
-            messagebox.showerror("Erro", "Dia, mês e ano devem ser números inteiros.")
-            return
-
-        if not (1 <= dia <= 31):
-            messagebox.showerror("Erro", "Dia deve estar entre 1 e 31.")
-            return
-        if not (1 <= mes <= 12):
-            messagebox.showerror("Erro", "Mês deve estar entre 1 e 12.")
-            return
-        if not (1 <= ano <= 9999):
-            messagebox.showerror("Erro", "Ano deve estar entre 1 e 9999.")
-            return
-
-        # validação de data real (evita 31/02, etc.)
-        try:
             datetime(ano, mes, dia)
-        except ValueError:
+        except:
             messagebox.showerror("Erro", "Data inválida.")
             return
 
-        # Descobrir o próximo ID
         max_id = 0
         for linha in ws.iter_rows(min_row=2, max_col=1, values_only=True):
-            cell_id = linha[0]
-            if cell_id is None:
-                continue
-            try:
-                iid = int(cell_id)
-                if iid > max_id:
-                    max_id = iid
-            except Exception:
-                continue
+            if linha[0] and int(linha[0]) > max_id:
+                max_id = int(linha[0])
 
         id_transacao = max_id + 1
 
-        # Salvar na planilha
         ws.append([id_transacao, valor, tipo, categoria, descricao, dia, mes, ano])
         wb.save("Controle_Financeiro.xlsx")
 
+        logging.info(f"Transação adicionada ID={id_transacao}, tipo={tipo}, valor={valor}")
         messagebox.showinfo("Sucesso", f"Transação {id_transacao} salva com sucesso!")
         janela.destroy()
 
@@ -266,12 +245,10 @@ def gui_adicionar_transacao(wb, ws):
     janela.title("Adicionar transação")
     janela.geometry("320x380")
 
-    # Valor
     tk.Label(janela, text="Valor:").pack(pady=(10, 0))
     entry_valor = tk.Entry(janela)
     entry_valor.pack()
 
-    # Tipo
     tk.Label(janela, text="Tipo:").pack(pady=(10, 0))
     var_tipo = tk.StringVar(value="entrada")
     frame_tipo = tk.Frame(janela)
@@ -279,52 +256,47 @@ def gui_adicionar_transacao(wb, ws):
     tk.Radiobutton(frame_tipo, text="Entrada", variable=var_tipo, value="entrada").pack(side="left", padx=5)
     tk.Radiobutton(frame_tipo, text="Saída", variable=var_tipo, value="saida").pack(side="left", padx=5)
 
-    # Categoria
     tk.Label(janela, text="Categoria:").pack(pady=(10, 0))
     categorias = ["lazer", "alimento", "trabalho", "estudos"]
     var_cat = tk.StringVar(value=categorias[0])
-    opt_cat = tk.OptionMenu(janela, var_cat, *categorias)
-    opt_cat.pack()
+    tk.OptionMenu(janela, var_cat, *categorias).pack()
 
-    # Descrição
     tk.Label(janela, text="Descrição:").pack(pady=(10, 0))
     entry_desc = tk.Entry(janela)
     entry_desc.pack()
 
-    # Data
     frame_data = tk.Frame(janela)
     frame_data.pack(pady=10)
 
-    tk.Label(frame_data, text="Dia:").grid(row=0, column=0, padx=2)
+    tk.Label(frame_data, text="Dia:").grid(row=0, column=0)
     entry_dia = tk.Entry(frame_data, width=4)
-    entry_dia.grid(row=0, column=1, padx=2)
+    entry_dia.grid(row=0, column=1)
 
-    tk.Label(frame_data, text="Mês:").grid(row=0, column=2, padx=2)
+    tk.Label(frame_data, text="Mês:").grid(row=0, column=2)
     entry_mes = tk.Entry(frame_data, width=4)
-    entry_mes.grid(row=0, column=3, padx=2)
+    entry_mes.grid(row=0, column=3)
 
-    tk.Label(frame_data, text="Ano:").grid(row=0, column=4, padx=2)
+    tk.Label(frame_data, text="Ano:").grid(row=0, column=4)
     entry_ano = tk.Entry(frame_data, width=6)
-    entry_ano.grid(row=0, column=5, padx=2)
+    entry_ano.grid(row=0, column=5)
 
     tk.Button(janela, text="Salvar transação", command=salvar).pack(pady=15)
 
 
-# ------------------------ VISUALIZAÇÕES (GRÁFICOS) ------------------------
-
+# ------------------------ VISUALIZAÇÕES ------------------------
 
 def abrir_menu_visualizacoes(ws):
-    """Janela com as opções de gráficos (pizza e linha)."""
+    logging.info("Ação: abrir menu de visualizações")
 
     def chamar_pizza():
+        logging.info("Gerando gráfico de pizza")
         msg = grafico_pizza_categorias(ws)
-        if msg:
-            messagebox.showinfo("Visualizações", msg)
+        messagebox.showinfo("Visualizações", msg)
 
     def chamar_linha():
+        logging.info("Gerando gráfico de linha")
         msg = grafico_saldo_acumulado(ws)
-        if msg:
-            messagebox.showinfo("Visualizações", msg)
+        messagebox.showinfo("Visualizações", msg)
 
     janela_vis = tk.Toplevel(root)
     janela_vis.title("Visualizações")
@@ -332,41 +304,31 @@ def abrir_menu_visualizacoes(ws):
 
     tk.Label(janela_vis, text="Escolha o tipo de gráfico:").pack(pady=10)
 
-    tk.Button(
-        janela_vis,
-        text="Gráfico de pizza (gastos por categoria)",
-        wraplength=260,
-        command=chamar_pizza
-    ).pack(pady=5)
-
-    tk.Button(
-        janela_vis,
-        text="Gráfico de linha (saldo acumulado)",
-        wraplength=260,
-        command=chamar_linha
-    ).pack(pady=5)
+    tk.Button(janela_vis, text="Gráfico de pizza", wraplength=260, command=chamar_pizza).pack(pady=5)
+    tk.Button(janela_vis, text="Gráfico de linha", wraplength=260, command=chamar_linha).pack(pady=5)
 
 
 # ------------------------ CADASTRO / LOGIN ------------------------
 
-
 def cadastrar_usuario_tk():
+    logging.info("Ação: janela cadastro de usuário")
+
     def salvar_usuario():
         nome = entry_nome.get().strip()
         senha = entry_senha.get().strip()
 
-        if nome == "":
-            messagebox.showerror("Erro", "Nome de usuário não pode ser vazio.")
+        if nome == "" or senha == "":
+            messagebox.showerror("Erro", "Preencha todos os campos.")
             return
+
         if nome in usuarios:
-            messagebox.showerror("Erro", "Usuário já existe. Tente outro nome.")
-            return
-        if senha == "":
-            messagebox.showerror("Erro", "Senha não pode ser vazia.")
+            messagebox.showerror("Erro", "Usuário já existe.")
+            logging.warning(f"Cadastro falhou: usuário existente ({nome})")
             return
 
         usuarios[nome] = senha
-        messagebox.showinfo("Sucesso", f"Usuário '{nome}' cadastrado com sucesso!")
+        messagebox.showinfo("Sucesso", f"Usuário '{nome}' cadastrado.")
+        logging.info(f"Usuário cadastrado: {nome}")
         janela.destroy()
 
     janela = tk.Toplevel(root)
@@ -385,15 +347,19 @@ def cadastrar_usuario_tk():
 
 
 def fazer_login_tk():
+    logging.info("Ação: janela login")
+
     def tentar_login():
         nome = entry_nome.get().strip()
         senha = entry_senha.get().strip()
 
         if nome in usuarios and usuarios[nome] == senha:
+            logging.info(f"Login bem-sucedido: {nome}")
             messagebox.showinfo("Sucesso", f"Login bem-sucedido! Bem-vindo, {nome}.")
             janela_login.destroy()
             abrir_menu_financeiro(nome)
         else:
+            logging.warning(f"TENTATIVA DE LOGIN FALHA: {nome}")
             messagebox.showerror("Erro", "Usuário ou senha inválidos.")
 
     janela_login = tk.Toplevel(root)
@@ -413,9 +379,10 @@ def fazer_login_tk():
 
 # ------------------------ MENU FINANCEIRO ------------------------
 
-
 def abrir_menu_financeiro(usuario_logado):
-    wb, ws = criar_planilha()  # abre ou cria o arquivo permanente
+    logging.info(f"Abrindo menu financeiro do usuário: {usuario_logado}")
+
+    wb, ws = criar_planilha()
 
     janela_fin = tk.Toplevel(root)
     janela_fin.title(f"Menu Financeiro - {usuario_logado}")
@@ -423,66 +390,40 @@ def abrir_menu_financeiro(usuario_logado):
 
     tk.Label(janela_fin, text=f"Menu Financeiro ({usuario_logado})").pack(pady=10)
 
-    tk.Button(
-        janela_fin,
-        text="Adicionar transação",
-        width=25,
-        command=lambda: gui_adicionar_transacao(wb, ws)  # <- AGORA USA A VERSÃO GUI
-    ).pack(pady=3)
+    tk.Button(janela_fin, text="Adicionar transação", width=25,
+              command=lambda: gui_adicionar_transacao(wb, ws)).pack(pady=3)
 
-    tk.Button(
-        janela_fin,
-        text="Remover transação",
-        width=25,
-        command=lambda: gui_remover_transacao(wb, ws)
-    ).pack(pady=3)
+    tk.Button(janela_fin, text="Remover transação", width=25,
+              command=lambda: gui_remover_transacao(wb, ws)).pack(pady=3)
 
-    tk.Button(
-        janela_fin,
-        text="Listar por categoria",
-        width=25,
-        command=lambda: gui_listar_categoria(ws)
-    ).pack(pady=3)
+    tk.Button(janela_fin, text="Listar por categoria", width=25,
+              command=lambda: gui_listar_categoria(ws)).pack(pady=3)
 
-    tk.Button(
-        janela_fin,
-        text="Listar por período",
-        width=25,
-        command=lambda: gui_listar_periodo(ws)
-    ).pack(pady=3)
+    tk.Button(janela_fin, text="Listar por período", width=25,
+              command=lambda: gui_listar_periodo(ws)).pack(pady=3)
 
-    tk.Button(
-        janela_fin,
-        text="Saldo por período",
-        width=25,
-        command=lambda: gui_saldo_periodo(ws)
-    ).pack(pady=3)
+    tk.Button(janela_fin, text="Saldo por período", width=25,
+              command=lambda: gui_saldo_periodo(ws)).pack(pady=3)
 
-    tk.Button(
-        janela_fin,
-        text="Visualizações",
-        width=25,
-        command=lambda: abrir_menu_visualizacoes(ws)
-    ).pack(pady=3)
+    tk.Button(janela_fin, text="Visualizações", width=25,
+              command=lambda: abrir_menu_visualizacoes(ws)).pack(pady=3)
 
-    tk.Button(
-        janela_fin,
-        text="Fechar menu financeiro",
-        width=25,
-        command=janela_fin.destroy
-    ).pack(pady=10)
+    tk.Button(janela_fin, text="Fechar menu financeiro", width=25,
+              command=janela_fin.destroy).pack(pady=10)
 
 
 # ------------------------ MENU INICIAL ------------------------
 
-
 def menu_inicial():
     global root
+    logging.info("Sistema iniciado")
+
     root = tk.Tk()
     root.title("Sistema de Usuários - Coin")
     root.geometry("300x220")
 
-    tk.Label(root, text="Sistema de Controle Financeiro", font=("Arial", 10, "bold")).pack(pady=10)
+    tk.Label(root, text="Sistema de Controle Financeiro",
+             font=("Arial", 10, "bold")).pack(pady=10)
 
     tk.Button(root, text="Cadastro", width=20, command=cadastrar_usuario_tk).pack(pady=5)
     tk.Button(root, text="Login", width=20, command=fazer_login_tk).pack(pady=5)
