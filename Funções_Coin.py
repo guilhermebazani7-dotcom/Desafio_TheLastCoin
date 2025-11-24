@@ -1,26 +1,18 @@
 import os
 from openpyxl import Workbook, load_workbook
 from datetime import datetime
-
+import matplotlib.pyplot as plt
 
 def criar_planilha():
-    """
-    Abre o arquivo Controle_Financeiro.xlsx se ele existir.
-    Se não existir, cria um novo com a planilha Transacoes e o cabeçalho.
-    Retorna wb, ws.
-    """
     arquivo = "Controle_Financeiro.xlsx"
 
     if os.path.exists(arquivo):
-        # Arquivo já existe: apenas abre
         wb = load_workbook(arquivo)
-        # Tenta usar a planilha "Transacoes"; se não existir, usa a ativa
         if "Transacoes" in wb.sheetnames:
             ws = wb["Transacoes"]
         else:
             ws = wb.active
             ws.title = "Transacoes"
-            # Se a planilha estiver vazia, garante o cabeçalho
             if ws.max_row == 1 and all(c.value is None for c in ws[1]):
                 ws.append([
                     "ID",
@@ -34,7 +26,6 @@ def criar_planilha():
                 ])
                 wb.save(arquivo)
     else:
-        # Arquivo não existe: cria do zero
         wb = Workbook()
         ws = wb.active
         ws.title = "Transacoes"
@@ -56,9 +47,9 @@ def criar_planilha():
 
 
 def adicionar_transa(wb, ws):
+    # (continua versão de terminal, você pode usar se quiser testar fora do Tk)
     print("----------------------------Cadastro de transações-----------------------------")
 
-    # Descobrir o maior ID já usado na planilha, para continuar a contagem
     max_id = 0
     for linha in ws.iter_rows(min_row=2, max_col=1, values_only=True):
         cell_id = linha[0]
@@ -71,7 +62,7 @@ def adicionar_transa(wb, ws):
         except:
             continue
 
-    id_transacao = max_id + 1  # próximo ID disponível
+    id_transacao = max_id + 1
 
     while True:
 
@@ -133,8 +124,8 @@ def adicionar_transa(wb, ws):
 
         # Cadastrando Ano
         while True:
-            ano_numero = input("Ano (0 a 2025): ")
-            if ano_numero.isdigit() and 1 <= int(ano_numero) <= 2025:
+            ano_numero = input("Ano (1 a 9999): ")
+            if ano_numero.isdigit() and 1 <= int(ano_numero) <= 9999:
                 ano = int(ano_numero)
                 break
             print("Ano inválido.")
@@ -155,18 +146,12 @@ def adicionar_transa(wb, ws):
 
 
 #------------------------------Opção 2------------------------------
-# AGORA NÃO TEM MAIS input()/print(), SÓ REMOVE PELO ID RECEBIDO
 
 
 def remover_transa(wb, ws, id_remover):
-    """
-    Remove a transação com o ID informado.
-    Retorna:
-      (True, detalhes) se encontrou e removeu
-      (False, mensagem) se não encontrou
-    """
+
     for indice_linha, row in enumerate(ws.iter_rows(min_row=2), start=2):
-        cell_id = row[0].value  # primeira coluna é o ID
+        cell_id = row[0].value
         if cell_id == id_remover:
             valor = row[1].value
             tipo = row[2].value
@@ -228,7 +213,6 @@ def listar_por_categoria(ws, categoria_busca):
         if categoria is None:
             continue
 
-        # compara categoria ignorando maiúsculas/minúsculas
         if str(categoria).strip().lower() == categoria_busca:
             encontrou = True
             data_str = f"{int(dia):02d}/{int(mes):02d}/{int(ano)}"
@@ -236,8 +220,11 @@ def listar_por_categoria(ws, categoria_busca):
             print(texto)
             linhas_resultado.append(texto)
 
-            # se for saída, conta como gasto
-            if tipo == "saida":
+            # normaliza tipo (trata "Saída", "saída", etc.)
+            tipo_norm = str(tipo).strip().lower()
+            tipo_norm = tipo_norm.replace("í", "i").replace("á", "a")
+
+            if "saida" in tipo_norm:
                 total_saidas += float(valor)
                 qtd_saidas += 1
 
@@ -263,16 +250,144 @@ def listar_por_categoria(ws, categoria_busca):
 
 
 
+#______________________________Opções Gráficas________________________
+
+
+#------------------------------Gráfico 1: Pizza por categoria-------------------------------
+
+def grafico_pizza_categorias(ws):
+    totais_por_categoria = {}
+
+    for linha in ws.iter_rows(min_row=2, values_only=True):
+        if not linha:
+            continue
+
+        tid, valor, tipo, categoria, descricao, dia, mes, ano = linha
+
+        if valor is None or categoria is None or tipo is None:
+            continue
+
+        cat_norm = str(categoria).strip().lower()
+        tipo_norm = str(tipo).strip().lower()
+        tipo_norm = tipo_norm.replace("í", "i").replace("á", "a")
+
+        # Considera apenas saídas como gasto
+        if "saida" in tipo_norm:
+            try:
+                v = float(valor)
+            except:
+                continue
+            if v <= 0:
+                continue
+            totais_por_categoria[cat_norm] = totais_por_categoria.get(cat_norm, 0) + v
+
+    if not totais_por_categoria:
+        return "Não há saídas registradas para gerar o gráfico de pizza."
+
+    labels = list(totais_por_categoria.keys())
+    valores = list(totais_por_categoria.values())
+
+    plt.figure()
+    plt.pie(valores, labels=labels, autopct="%1.1f%%")
+    plt.title("Proporção de gastos por categoria")
+    plt.tight_layout()
+    plt.show()
+
+    return "Gráfico de pizza exibido com sucesso."
+
+
+#------------------------------Gráfico 2: Linha saldo acumulado-----------------------------
+
+
+
+def grafico_saldo_acumulado(ws):
+    """
+    Cria um gráfico de linha mostrando o saldo acumulado ao longo do tempo.
+    Usa o índice das transações no eixo X e mostra as datas como rótulos.
+    """
+    dados = []
+
+    # Coletar dados válidos
+    for linha in ws.iter_rows(min_row=2, values_only=True):
+        if not linha:
+            continue
+
+        tid, valor, tipo, categoria, descricao, dia, mes, ano = linha
+
+        if valor is None or tipo is None or dia is None or mes is None or ano is None:
+            continue
+
+        try:
+            ano_int = int(ano)
+            mes_int = int(mes)
+            dia_int = int(dia)
+
+            # filtro de ano só por segurança
+            if not (1 <= ano_int <= 9999):
+                continue
+
+            data = datetime(ano_int, mes_int, dia_int)
+            v = float(valor)
+        except Exception:
+            continue
+
+        tipo_norm = str(tipo).strip().lower()
+        tipo_norm = tipo_norm.replace("í", "i").replace("á", "a")
+
+        if "entrada" in tipo_norm:
+            tipo_final = "entrada"
+        elif "saida" in tipo_norm:
+            tipo_final = "saida"
+        else:
+            continue
+
+        dados.append((data, tipo_final, v))
+
+    if not dados:
+        return "Não há transações suficientes para gerar o gráfico de saldo."
+
+    # Ordenar por data
+    dados.sort(key=lambda x: x[0])
+
+    saldos = []
+    datas_str = []
+    saldo_atual = 0.0
+
+    for data, tipo_final, v in dados:
+        if tipo_final == "entrada":
+            saldo_atual += v
+        elif tipo_final == "saida":
+            saldo_atual -= v
+
+        saldos.append(saldo_atual)
+        datas_str.append(data.strftime("%d/%m/%Y"))
+
+    if not saldos:
+        return "Não foi possível gerar o gráfico: nenhuma transação válida encontrada."
+
+    # Eixo X: índice das transações (0, 1, 2, ...)
+    x = list(range(len(saldos)))
+
+    plt.figure()
+    plt.plot(x, saldos, marker="o")
+    plt.xlabel("Transações (em ordem cronológica)")
+    plt.ylabel("Saldo acumulado (R$)")
+    plt.title("Evolução do saldo acumulado ao longo do tempo")
+
+    # Colocar as datas como rótulos no eixo X
+    plt.xticks(x, datas_str, rotation=45, ha="right")
+
+    plt.tight_layout()
+    plt.show()
+
+    return "Gráfico de linha exibido com sucesso."
+
+
+
 #------------------------------Opção 4-------------------------------
 
 
 def listar_por_periodo(ws, data_inicial, data_final):
-    """
-    data_inicial e data_final são objetos datetime já validados.
-    """
-    print("\n----------------------------Listar transações por período-----------------------------")
-
-    # Verificar se o período é válido
     if data_inicial > data_final:
         msg = "Período inválido: a data inicial é maior que a final."
         print(msg)
@@ -300,13 +415,11 @@ def listar_por_periodo(ws, data_inicial, data_final):
         if dia is None or mes is None or ano is None or valor is None:
             continue
 
-        # montar a data real da transação
         try:
             data_transacao = datetime(int(ano), int(mes), int(dia))
         except:
-            continue  # ignora datas inválidas
+            continue
 
-        # verificar se está dentro do período
         if data_inicial <= data_transacao <= data_final:
             encontrou = True
             data_str = data_transacao.strftime("%d/%m/%Y")
@@ -314,8 +427,9 @@ def listar_por_periodo(ws, data_inicial, data_final):
             print(texto)
             linhas_resultado.append(texto)
 
-            # se for saída, conta como gasto
-            if tipo == "saida":
+            tipo_norm = str(tipo).strip().lower()
+            tipo_norm = tipo_norm.replace("í", "i").replace("á", "a")
+            if "saida" in tipo_norm:
                 total_saidas += float(valor)
                 qtd_saidas += 1
 
@@ -344,18 +458,10 @@ def listar_por_periodo(ws, data_inicial, data_final):
     return "\n".join(linhas_resultado)
 
 
-
-
 #------------------------------Opção 5-------------------------------
 
 
 def calcular_saldo_periodo(ws, data_inicial, data_final):
-    """
-    data_inicial e data_final são objetos datetime já validados.
-    """
-    print("\n----------------------------Saldo por período-----------------------------")
-
-    # Verificar se o período é válido
     if data_inicial > data_final:
         msg = "Período inválido: a data inicial é maior que a final."
         print(msg)
@@ -366,10 +472,8 @@ def calcular_saldo_periodo(ws, data_inicial, data_final):
     total_saidas = 0.0
     encontrou = False
 
-    # dicionário para saldo por mês: chave = (ano, mes), valor = saldo desse mês
-    saldo_por_mes = {}  # ex: {(2025, 1): 150.0, (2025, 2): -20.0}
+    saldo_por_mes = {}
 
-    # Percorrer as linhas da planilha
     for linha in ws.iter_rows(min_row=2, values_only=True):
 
         if not linha:
@@ -377,31 +481,36 @@ def calcular_saldo_periodo(ws, data_inicial, data_final):
 
         tid, valor, tipo, categoria, descricao, dia, mes, ano = linha
 
-        # pular linhas vazias
         if dia is None or mes is None or ano is None or valor is None or tipo is None:
             continue
 
-        # montar a data real da transação
         try:
-            data_transacao = datetime(int(ano), int(mes), int(dia))
+            ano_int = int(ano)
+            mes_int = int(mes)
+            dia_int = int(dia)
+            if not (1 <= ano_int <= 9999):
+                continue
+            data_transacao = datetime(ano_int, mes_int, dia_int)
         except:
-            continue  # ignora datas mal formatadas na planilha
+            continue
 
-        # comparar datas usando datetime
         if data_inicial <= data_transacao <= data_final:
             encontrou = True
             valor_f = float(valor)
 
-            chave_mes = (int(ano), int(mes))
+            chave_mes = (ano_int, mes_int)
             if chave_mes not in saldo_por_mes:
                 saldo_por_mes[chave_mes] = 0.0
 
-            if tipo == "entrada":
+            tipo_norm = str(tipo).strip().lower()
+            tipo_norm = tipo_norm.replace("í", "i").replace("á", "a")
+
+            if "entrada" in tipo_norm:
                 total_entradas += valor_f
                 saldo += valor_f
                 saldo_por_mes[chave_mes] += valor_f
 
-            elif tipo == "saida":
+            elif "saida" in tipo_norm:
                 total_saidas += valor_f
                 saldo -= valor_f
                 saldo_por_mes[chave_mes] -= valor_f
@@ -422,7 +531,6 @@ def calcular_saldo_periodo(ws, data_inicial, data_final):
         linhas_resultado.append(msg)
         return "\n".join(linhas_resultado)
 
-    # Totais gerais do período
     txt_ent = f"Total de ENTRADAS: R$ {total_entradas:.2f}"
     txt_sai = f"Total de SAÍDAS..: R$ {total_saidas:.2f}"
     txt_saldo = f"SALDO NO PERÍODO.: R$ {saldo:.2f}"
@@ -437,12 +545,10 @@ def calcular_saldo_periodo(ws, data_inicial, data_final):
     linhas_resultado.append("----------------------------------------------------------")
     linhas_resultado.append(txt_saldo)
 
-    # Saldo por mês
     linhas_resultado.append("\n================== SALDO POR MÊS ==================")
     print("\n================== SALDO POR MÊS ==================")
 
-    # ordenar por ano, depois por mês
-    chaves_ordenadas = sorted(saldo_por_mes.keys())  # ordena por (ano, mes)
+    chaves_ordenadas = sorted(saldo_por_mes.keys())
 
     for (ano_m, mes_m) in chaves_ordenadas:
         saldo_mes = saldo_por_mes[(ano_m, mes_m)]
