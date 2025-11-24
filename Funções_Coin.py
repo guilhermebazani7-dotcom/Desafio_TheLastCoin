@@ -1,7 +1,25 @@
 import os
+import logging
 from openpyxl import Workbook, load_workbook
 from datetime import datetime
 import matplotlib.pyplot as plt
+
+# ------------------------ CONFIGURAÇÃO DE LOGGING ------------------------
+
+LOG_FILE = "coin.log"
+
+logging.basicConfig(
+    filename=LOG_FILE,
+    level=logging.INFO,  # pode trocar para DEBUG se quiser mais detalhe
+    format="%(asctime)s [%(levelname)s] %(name)s - %(message)s",
+    encoding="utf-8"
+)
+
+logger = logging.getLogger("coin")  # logger principal do sistema
+
+
+# ------------------------ FUNÇÕES PRINCIPAIS ------------------------
+
 
 def criar_planilha():
     arquivo = "Controle_Financeiro.xlsx"
@@ -10,6 +28,7 @@ def criar_planilha():
         wb = load_workbook(arquivo)
         if "Transacoes" in wb.sheetnames:
             ws = wb["Transacoes"]
+            logger.info("Planilha existente carregada: %s (aba 'Transacoes')", arquivo)
         else:
             ws = wb.active
             ws.title = "Transacoes"
@@ -25,6 +44,7 @@ def criar_planilha():
                     "Ano"
                 ])
                 wb.save(arquivo)
+            logger.info("Planilha existente ajustada com aba 'Transacoes' e cabeçalho.")
     else:
         wb = Workbook()
         ws = wb.active
@@ -42,12 +62,18 @@ def criar_planilha():
         ])
 
         wb.save(arquivo)
+        logger.info("Nova planilha criada: %s (aba 'Transacoes')", arquivo)
 
     return wb, ws
 
 
 def adicionar_transa(wb, ws):
-    # (continua versão de terminal, você pode usar se quiser testar fora do Tk)
+    """
+    Versão em modo texto (terminal). No seu fluxo atual com Tkinter,
+    você está usando a versão gráfica (gui_adicionar_transacao),
+    mas mantive esta função por compatibilidade.
+    """
+    logger.info("Iniciando cadastro de transações (modo terminal).")
     print("----------------------------Cadastro de transações-----------------------------")
 
     max_id = 0
@@ -132,6 +158,10 @@ def adicionar_transa(wb, ws):
 
         ws.append([id_transacao, valor, tipo, categoria, descricao, dia, mes, ano])
         wb.save("Controle_Financeiro.xlsx")
+        logger.info(
+            "Transação adicionada (terminal): ID=%s, valor=%.2f, tipo=%s, categoria=%s, data=%02d/%02d/%04d",
+            id_transacao, valor, tipo, categoria, dia, mes, ano
+        )
         print("Transação salva com sucesso!")
 
         id_transacao += 1
@@ -142,7 +172,6 @@ def adicionar_transa(wb, ws):
             break
 
     print("Arquivo atualizado: Controle_Financeiro.xlsx")
-
 
 
 #------------------------------Opção 2------------------------------
@@ -172,10 +201,12 @@ def remover_transa(wb, ws, id_remover):
 
             ws.delete_rows(indice_linha, 1)
             wb.save("Controle_Financeiro.xlsx")
+            logger.info("Transação removida: ID=%s, valor=%s, tipo=%s, categoria=%s, data=%s/%s/%s",
+                        cell_id, valor, tipo, categoria, dia, mes, ano)
             return True, detalhes
 
+    logger.warning("Tentativa de remover transação inexistente. ID=%s", id_remover)
     return False, "Nenhuma transação com esse ID foi encontrada."
-
 
 
 #------------------------------Opção 3-------------------------------
@@ -184,9 +215,9 @@ def remover_transa(wb, ws, id_remover):
 def listar_por_categoria(ws, categoria_busca):
     categoria_busca = str(categoria_busca).strip().lower()
 
-    # validação simples
     if categoria_busca not in ["lazer", "alimento", "trabalho", "estudos"]:
         msg = "Categoria inválida. Use: lazer, alimento, trabalho ou estudos."
+        logger.warning("Categoria inválida em listar_por_categoria: %s", categoria_busca)
         print(msg)
         return msg
 
@@ -220,7 +251,6 @@ def listar_por_categoria(ws, categoria_busca):
             print(texto)
             linhas_resultado.append(texto)
 
-            # normaliza tipo (trata "Saída", "saída", etc.)
             tipo_norm = str(tipo).strip().lower()
             tipo_norm = tipo_norm.replace("í", "i").replace("á", "a")
 
@@ -230,6 +260,7 @@ def listar_por_categoria(ws, categoria_busca):
 
     if not encontrou:
         msg = "Nenhuma transação encontrada para essa categoria."
+        logger.info("listar_por_categoria sem resultados. Categoria=%s", categoria_busca)
         print(msg)
         return msg
 
@@ -246,14 +277,14 @@ def listar_por_categoria(ws, categoria_busca):
         linhas_resultado.append("Não houve saídas (gastos) nessa categoria, portanto não há média de gastos.")
         print("Não houve saídas (gastos) nessa categoria, portanto não há média de gastos.")
 
-    return "\n".join(linhas_resultado)
+    logger.info("listar_por_categoria: categoria=%s, total_saidas=%.2f, qtd_saidas=%d",
+                categoria_busca, total_saidas, qtd_saidas)
 
+    return "\n".join(linhas_resultado)
 
 
 #______________________________Opções Gráficas________________________
 
-
-#------------------------------Gráfico 1: Pizza por categoria-------------------------------
 
 def grafico_pizza_categorias(ws):
     totais_por_categoria = {}
@@ -271,7 +302,6 @@ def grafico_pizza_categorias(ws):
         tipo_norm = str(tipo).strip().lower()
         tipo_norm = tipo_norm.replace("í", "i").replace("á", "a")
 
-        # Considera apenas saídas como gasto
         if "saida" in tipo_norm:
             try:
                 v = float(valor)
@@ -282,10 +312,14 @@ def grafico_pizza_categorias(ws):
             totais_por_categoria[cat_norm] = totais_por_categoria.get(cat_norm, 0) + v
 
     if not totais_por_categoria:
-        return "Não há saídas registradas para gerar o gráfico de pizza."
+        msg = "Não há saídas registradas para gerar o gráfico de pizza."
+        logger.info("grafico_pizza_categorias: nenhum dado de saída encontrado.")
+        return msg
 
     labels = list(totais_por_categoria.keys())
     valores = list(totais_por_categoria.values())
+
+    logger.info("Gerando gráfico de pizza. Categorias=%s", labels)
 
     plt.figure()
     plt.pie(valores, labels=labels, autopct="%1.1f%%")
@@ -296,10 +330,6 @@ def grafico_pizza_categorias(ws):
     return "Gráfico de pizza exibido com sucesso."
 
 
-#------------------------------Gráfico 2: Linha saldo acumulado-----------------------------
-
-
-
 def grafico_saldo_acumulado(ws):
     """
     Cria um gráfico de linha mostrando o saldo acumulado ao longo do tempo.
@@ -307,7 +337,6 @@ def grafico_saldo_acumulado(ws):
     """
     dados = []
 
-    # Coletar dados válidos
     for linha in ws.iter_rows(min_row=2, values_only=True):
         if not linha:
             continue
@@ -322,7 +351,6 @@ def grafico_saldo_acumulado(ws):
             mes_int = int(mes)
             dia_int = int(dia)
 
-            # filtro de ano só por segurança
             if not (1 <= ano_int <= 9999):
                 continue
 
@@ -344,9 +372,9 @@ def grafico_saldo_acumulado(ws):
         dados.append((data, tipo_final, v))
 
     if not dados:
+        logger.info("grafico_saldo_acumulado: nenhum dado de transação para plotar.")
         return "Não há transações suficientes para gerar o gráfico de saldo."
 
-    # Ordenar por data
     dados.sort(key=lambda x: x[0])
 
     saldos = []
@@ -363,25 +391,23 @@ def grafico_saldo_acumulado(ws):
         datas_str.append(data.strftime("%d/%m/%Y"))
 
     if not saldos:
+        logger.warning("grafico_saldo_acumulado: lista de saldos vazia após processamento.")
         return "Não foi possível gerar o gráfico: nenhuma transação válida encontrada."
 
-    # Eixo X: índice das transações (0, 1, 2, ...)
     x = list(range(len(saldos)))
+
+    logger.info("Gerando gráfico de saldo acumulado. Total de pontos=%d", len(saldos))
 
     plt.figure()
     plt.plot(x, saldos, marker="o")
     plt.xlabel("Transações (em ordem cronológica)")
     plt.ylabel("Saldo acumulado (R$)")
     plt.title("Evolução do saldo acumulado ao longo do tempo")
-
-    # Colocar as datas como rótulos no eixo X
     plt.xticks(x, datas_str, rotation=45, ha="right")
-
     plt.tight_layout()
     plt.show()
 
     return "Gráfico de linha exibido com sucesso."
-
 
 
 #------------------------------Opção 4-------------------------------
@@ -390,6 +416,7 @@ def grafico_saldo_acumulado(ws):
 def listar_por_periodo(ws, data_inicial, data_final):
     if data_inicial > data_final:
         msg = "Período inválido: a data inicial é maior que a final."
+        logger.warning("listar_por_periodo com período inválido: %s > %s", data_inicial, data_final)
         print(msg)
         return msg
 
@@ -438,6 +465,7 @@ def listar_por_periodo(ws, data_inicial, data_final):
 
     if not encontrou:
         msg = "Nenhuma transação encontrada nesse período."
+        logger.info("listar_por_periodo sem resultados. Periodo %s a %s", data_inicial, data_final)
         print(msg)
         return msg
 
@@ -455,6 +483,11 @@ def listar_por_periodo(ws, data_inicial, data_final):
         print(resumo2)
         linhas_resultado.append(resumo2)
 
+    logger.info(
+        "listar_por_periodo: periodo=%s a %s, total_saidas=%.2f, qtd_saidas=%d",
+        data_inicial, data_final, total_saidas, qtd_saidas
+    )
+
     return "\n".join(linhas_resultado)
 
 
@@ -464,6 +497,7 @@ def listar_por_periodo(ws, data_inicial, data_final):
 def calcular_saldo_periodo(ws, data_inicial, data_final):
     if data_inicial > data_final:
         msg = "Período inválido: a data inicial é maior que a final."
+        logger.warning("calcular_saldo_periodo com período inválido: %s > %s", data_inicial, data_final)
         print(msg)
         return msg
 
@@ -527,6 +561,7 @@ def calcular_saldo_periodo(ws, data_inicial, data_final):
 
     if not encontrou:
         msg = "Nenhuma transação encontrada nesse período."
+        logger.info("calcular_saldo_periodo sem resultados. Periodo %s a %s", data_inicial, data_final)
         print(msg)
         linhas_resultado.append(msg)
         return "\n".join(linhas_resultado)
@@ -555,5 +590,10 @@ def calcular_saldo_periodo(ws, data_inicial, data_final):
         linha_mes = f"Mês {mes_m:02d}/{ano_m}: R$ {saldo_mes:.2f}"
         print(linha_mes)
         linhas_resultado.append(linha_mes)
+
+    logger.info(
+        "calcular_saldo_periodo: periodo=%s a %s, entradas=%.2f, saidas=%.2f, saldo=%.2f",
+        data_inicial, data_final, total_entradas, total_saidas, saldo
+    )
 
     return "\n".join(linhas_resultado)

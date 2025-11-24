@@ -1,0 +1,13 @@
+2025-11-24 17:37:34,040 [INFO] root - Sistema iniciado
+2025-11-24 17:37:35,941 [INFO] root - Ação: janela cadastro de usuário
+2025-11-24 17:37:44,532 [INFO] root - Usuário cadastrado: gui
+2025-11-24 17:37:45,959 [INFO] root - Ação: janela login
+2025-11-24 17:37:50,327 [INFO] root - Login bem-sucedido: gui
+2025-11-24 17:37:51,984 [INFO] root - Abrindo menu financeiro do usuário: gui
+2025-11-24 17:37:51,998 [INFO] coin - Planilha existente carregada: Controle_Financeiro.xlsx (aba 'Transacoes')
+2025-11-24 17:37:54,047 [INFO] root - Ação: abrir menu de visualizações
+2025-11-24 17:37:55,319 [INFO] root - Gerando gráfico de pizza
+2025-11-24 17:37:55,319 [INFO] coin - Gerando gráfico de pizza. Categorias=['alimento', 'lazer', 'trabalho', 'estudos']
+2025-11-24 17:38:38,487 [INFO] root - Ação: abrir menu de visualizações
+2025-11-24 17:38:40,475 [INFO] root - Gerando gráfico de linha
+2025-11-24 17:38:40,475 [INFO] coin - Gerando gráfico de saldo acumulado. Total de pontos=8
