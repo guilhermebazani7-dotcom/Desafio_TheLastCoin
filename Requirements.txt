@@ -20,5 +20,13 @@ from tkinter import messagebox
 
 Funções_Coin.py
 
+import os
+import logging
+from openpyxl import Workbook, load_workbook
+from datetime import datetime
+import matplotlib.pyplot as plt
+
+
+
 
 
