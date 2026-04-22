@@ -1,6 +1,24 @@
 Bibliotecas usadas foram:
 
 Cadastro_Coin.py
-        from datetime import datetime
-        import logging
+
+from datetime import datetime
+import logging
+from Funções_Coin import (
+    criar_planilha,
+    adicionar_transa,
+    remover_transa,
+    calcular_saldo_periodo,
+    listar_por_categoria,
+    listar_por_periodo,
+    grafico_pizza_categorias,
+    grafico_saldo_acumulado,
+)
+
+import tkinter as tk
+from tkinter import messagebox
+
+Funções_Coin.py
+
+
 
